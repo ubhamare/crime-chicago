@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>	<title>Chicago Crime</title></head>
+<style>
+
+#svg1 path {
+  fill: #ccc;
+  stroke: #fff;
+  stroke-width: .5px;
+}
+
+#svg1 path:hover {
+  fill: red;
+}
+
+#svg1 axis path,
+#svg1 axis line {
+    fill: none;
+    stroke: grey;
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.d3-tip
+{
+	line-height: 1;
+	font-weight: normal;
+	padding: 12px;
+	background: rgba(255, 255, 255, 0.5);
+  color: black;
+	border: 1px solid black;
+}
+
+.d3-tip:after
+{
+	box-sizing: border-box;
+	display: inline;
+	font-size: 10px;
+	width: 100%;
+	line-height: 1;
+	color: rgba(255, 255, 255, 0.5);
+	content: "\25BC";
+	position: absolute;
+	text-align: center;
+}
+
+.d3-tip.n:after
+{
+	margin: -1px 0 0 0;
+	top: 100%;
+	left: 0;
+}
+.tooltip {
+  position: absolute;
+  text-align: center;
+  width: 60px;
+  height: 15px;
+  padding: 8px;
+  margin-top: -20px;
+  font: 15px sans-serif;
+
+  pointer-events: none;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: grey;
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+.line {
+    fill: none;
+    stroke: grey;
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.6.3/d3-tip.min.js"></script>
+<center><h1>Visualizing Crimes in Chicago</h1></center>
+<div width="100%">
+<div align="left" width="45%"><a id="arrest" href="#" >Arrest Ratio</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="javascript:domesticFunction();" >Domestic Violence</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="javascript:reset();" >Reset</a></div>
+<div align="right" width="45%"><a href="documentation.html" target="_blank">Documentation</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#" target="_blank">Demonstration video</a></div>
+</div>
+<svg id="svg1" width="400" height="500">
+			</svg>
+
+
+<script>
+
+var width = 660,
+    height = 500;
+
+var path = d3.geo.path();
+
+var tool_tip = d3.tip()
+  .attr("class", "d3-tip")
+  .offset([20, 120])
+  .html("<b>Top 5 contributor crimes in this ward:</b><div id='tipDiv'></div>");
+
+var	margin = {top: 30, right: 10, bottom: 40, left: 70},
+	w1 = 470 - margin.left - margin.right,
+	h1 = 400 - margin.top - margin.bottom;
+
+var div = d3.select("body").append("div")	
+    			.attr("class", "tooltip")				
+    			.style("opacity", "none");
+
+var svg = d3.select("body").select("#svg1").append("g");
+
+	d3.select("body").select("#svg1")
+	.call(d3.behavior.zoom().on("zoom", function (){
+					svg.attr("transform", "translate(" + d3.event.translate + ")" + " scale(" + d3.event.scale + ")")}));
+svg.call(tool_tip);
+
+
+var	chart1 = d3.select("body")
+	.append("svg")
+	.attr("id","svg2")
+		.attr("width", w1 + margin.left + margin.right)
+		.attr("height", 1.75*h1 + margin.top + margin.bottom-200)
+	.append("g")
+		.attr("transform", 
+              "translate("+ margin.left + "," + margin.top + ")");
+
+d3.json("Wards.json", function(error, topology) {
+  if (error) throw error;
+  
+  var featureCollection = topojson.feature(topology, topology.objects.Boundaries);
+  var bounds = d3.geo.bounds(featureCollection);
+  
+  var centerX = d3.sum(bounds, function(d) {return d[0];}) / 2,
+	centerY = d3.sum(bounds, function(d) {return d[1];}) / 2;
+			
+		
+  var projection = d3.geo.mercator()
+  .scale(50000)
+  .center([centerX, centerY])
+  .translate([200, 250]);	
+  
+   path.projection(projection);
+  
+  svg.selectAll("path")
+      .data(featureCollection.features)
+    .enter().append("path")
+      .attr("d", path)
+	  .attr("id", function(d) { return d.properties.ward; })
+	  .on("click", function(d) {
+				tool_tip.hide();
+				var x = document.getElementById("svg1").querySelectorAll('path');
+				var i;
+				for (i = 0; i < x.length; i++) {
+					x[i].style.fill = "#ccc";
+				}
+				
+				this.style.fill = 'red';
+				var t_id = this.id;
+				//console.log(wardList1.filter(function(d){return d.ward==t_id}));
+				temp = wardList1.filter(function(d){return d.ward==t_id});
+				//d=15;
+				var tempcnt = [0,0,0,0,0,0]
+				
+				var i;
+				for (i = 0; i < 6; i++) { 
+					tempcnt[i] = parseInt(temp[i].count,10);
+				}
+				Array.prototype.max = function() {
+					return Math.max.apply(null, this);
+				};
+
+				
+				maxVal = tempcnt.max();
+				var CHART_WIDTH = 200;
+				var xScale = d3.scale.linear();
+				xScale.domain([0, maxVal]).range([0, CHART_WIDTH - 50]);
+				
+				tool_tip.show();
+    var tipSVG = d3.select("#tipDiv")
+      .append("svg")
+      .attr("width", 300)
+      .attr("height", 120)
+	  .attr("border","solid 2px ")
+	  .attr("border-color","black");
+
+    tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 10)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[0].count));
+
+    tipSVG.append("text")
+      .text(temp[0].prim_type + ' - '+temp[0].count)
+      .attr("x", 10)
+      .attr("y", 20)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[0].count));
+				
+    tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 30)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[1].count));
+
+    tipSVG.append("text")
+      .text(temp[1].prim_type + ' - '+temp[1].count)
+      .attr("x", 10)
+      .attr("y", 40)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[1].count));
+	  
+    tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 50)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[2].count));
+
+    tipSVG.append("text")
+      .text(temp[2].prim_type + ' - '+temp[2].count)
+      .attr("x", 10)
+      .attr("y", 60)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[2].count));
+	  
+	  tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 70)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[3].count));
+
+    tipSVG.append("text")
+      .text(temp[3].prim_type + ' - '+temp[3].count)
+      .attr("x", 10)
+      .attr("y", 80)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[3].count));
+	  
+	  tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 90)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[4].count));
+
+    tipSVG.append("text")
+      .text(temp[4].prim_type + ' - '+temp[4].count)
+      .attr("x", 10)
+      .attr("y", 100)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[4].count));
+	  
+	  tipSVG.append("rect")
+      .attr("fill", "steelblue")
+      .attr("y", 110)
+      .attr("width", 0)
+      .attr("height", 10)
+      .transition()
+      .duration(1000)
+      .attr("width", xScale(temp[5].count));
+
+    tipSVG.append("text")
+      .text(temp[5].prim_type + ' - '+temp[5].count)
+      .attr("x", 10)
+      .attr("y", 120)
+	  .attr("font-size",12)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + xScale(temp[5].count));
+	
+				});					
+				//.on("mouseout", function(){tool_tip.hide();});
+	  
+	
+});
+var wardList1 = [];
+d3.csv("ward_cnt3.csv", function(data) {
+  
+  data.forEach(function(d) {
+    var object = {
+	ward : d.ward,
+	prim_type : d.Primary_type,
+	count : d.cnt
+	}
+	wardList1.push(object);
+  });
+});
+
+var wardDomestic = [];
+d3.csv("domestic.csv", function(data) {  
+  data.forEach(function(d) {
+    var object = {
+	ward_num : d.ward1,
+	count : d.cnt
+	
+	}
+	wardDomestic.push(object);
+  });  
+});
+
+
+function reset(){
+location.reload();
+}
+function domesticFunction() 
+ {
+ tool_tip.hide();
+            var domesticGroup1 = wardDomestic.filter(function(d){return d.count <= 1000 && d.count >= 0;});
+             var domesticGroup2 = wardDomestic.filter(function(d){return d.count <= 2000 && d.count > 1000;});
+             var domesticGroup3 = wardDomestic.filter(function(d){return d.count <= 3000 && d.count > 2000;});
+             var domesticGroup4 = wardDomestic.filter(function(d){return d.count <= 4000 && d.count > 3000;});
+             var domesticGroup5 = wardDomestic.filter(function(d){return d.count > 4000;});
+             
+             var x = document.getElementById("svg1").querySelectorAll('path');
+				var i;
+				for (i = 0; i < x.length; i++) {
+					x[i].style.fill = "#ccc";
+				}
+             if (domesticGroup1.length > 0){
+             	domesticGroup1.forEach(function(d) {
+        			document.getElementById(d.ward_num).style.fill = '#c994c7'
+    		    	});
+             }
+             if (domesticGroup2.length > 0){
+             domesticGroup2.forEach(function(d) {
+        		document.getElementById(d.ward_num).style.fill = '#df65b0'
+    		    });
+    		}
+    		if (domesticGroup3.length > 0){
+             domesticGroup3.forEach(function(d) {
+        		document.getElementById(d.ward_num).style.fill = '#e7298a'
+    		    });
+    		}
+    		if (domesticGroup4.length > 0){
+             domesticGroup4.forEach(function(d) {
+        		document.getElementById(d.ward_num).style.fill = '#ce1256'
+    		    });
+    		}
+    		if (domesticGroup5.length > 0){
+             domesticGroup5.forEach(function(d) {
+        		document.getElementById(d.ward_num).style.fill = '#67001f'
+    		    });
+    		}
+    		
+    		domesticGroup = [0,domesticGroup1,domesticGroup2,domesticGroup3,domesticGroup4,domesticGroup5];
+    	    var color_hash = {  0 : ["Domestic violence: 0", "#ccc"], 1 : ["Domestic violence: 1-1000", "#c994c7"],
+					    2 : ["Domestic violence: 1001-2000", "#df65b0"],3 : ["Domestic violence: 2001-3000", "#e7298a"],4 : ["Domestic violence: 3001-4000", "#ce1256"],5 : ["Domestic violence: > 4000", "#67001f"]}
+					    
+  			var legend = svg.append("g")
+  								.attr('transform', "translate(" + (margin.right - 150) + "," + (margin.bottom + 330) + ")")
+    							.attr("class", "legend")
+
+  			legend.selectAll("body")
+  					.data(domesticGroup)
+      				.enter()
+      				.append("g")
+      				.each(function(d, i) {
+        			var g = d3.select(this);
+        				g.append("rect")
+          				.attr("x", w1 - 250)
+          				.attr("y", i*25 -5)
+          				.attr("width", 10)
+          				.attr("height", 10)
+          				.style("stroke", "black")
+          				.style("fill", color_hash[String(i)][1]);
+
+        			g.append("text")
+          			.attr("x", w1 - 230)
+          			.attr("y", i * 25 + 4)
+          			.attr("height",150)
+          			.attr("width",150)
+          			.text(color_hash[String(i)][0]);
+        })
+    };
+
+var wardCrime = [];
+d3.csv("YearWardsCrime.csv", function(data) {
+  
+  data.forEach(function(d) {
+    var object = {
+	crime_year : d.Year,
+	crime_ward : d.Ward,
+	count_crime : d.CountCrime
+	}
+	wardCrime.push(object);
+  });
+});
+
+var wardArrest = [];
+d3.csv("arrest.csv", function(data) {  
+  data.forEach(function(d) {
+    var object = {
+	ward_num : d.ward,
+	crim_ward : d.Crime,
+	police_arrest : d.Arrest,
+	percent_Arrest : d.Percentage
+	
+	}
+	wardArrest.push(object);
+  });  
+});
+
+ document.getElementById("arrest")
+	.onclick = arrestFunction;
+		
+ function arrestFunction() 
+ {
+ tool_tip.hide();
+             var arrestGroup1 = wardArrest.filter(function(d){return d.percent_Arrest <= 5 && d.percent_Arrest >= 0;});
+             var arrestGroup2 = wardArrest.filter(function(d){return d.percent_Arrest <= 10 && d.percent_Arrest > 5;});
+             var arrestGroup3 = wardArrest.filter(function(d){return d.percent_Arrest <= 20 && d.percent_Arrest > 10;});
+             var arrestGroup4 = wardArrest.filter(function(d){return d.percent_Arrest <= 50 && d.percent_Arrest > 20;});
+             var arrestGroup5 = wardArrest.filter(function(d){return d.percent_Arrest <= 100 && d.percent_Arrest > 50;});
+             
+             if (arrestGroup1.length > 0){
+             	arrestGroup1.forEach(function(d) {
+        			d.arrest_ward = d.ward_num;
+        			//console.log('Top 1:',d.arrest_ward);
+        			document.getElementById(d.arrest_ward).style.fill = '#ccebc5'
+    		    	});
+             }
+             if (arrestGroup2.length > 0){
+             arrestGroup2.forEach(function(d) {
+        		d.arrest_ward = d.ward_num;
+        		//console.log('Top 2:',d.arrest_ward);
+        		document.getElementById(d.arrest_ward).style.fill = '#7bccc4'
+    		    });
+    		}
+    		if (arrestGroup3.length > 0){
+             arrestGroup3.forEach(function(d) {
+        		d.arrest_ward = d.ward_num;
+        		//console.log('Top 3:',d.arrest_ward);
+        		document.getElementById(d.arrest_ward).style.fill = '#2b8cbe'
+    		    });
+    		}
+    		if (arrestGroup4.length > 0){
+             arrestGroup4.forEach(function(d) {
+        		d.arrest_ward = d.ward_num;
+        		//console.log('Top 4:',d.arrest_ward);
+        		document.getElementById(d.arrest_ward).style.fill = '#0868ac'
+    		    });
+    		}
+    		if (arrestGroup5.length > 0){
+             arrestGroup5.forEach(function(d) {
+        		d.arrest_ward = d.ward_num;
+        		//console.log('Top 5:',d.arrest_ward);
+        		document.getElementById(d.arrest_ward).style.fill = '#084081'
+    		    });
+    		}
+    		
+    		WardArrestGroup = [arrestGroup1,arrestGroup2,arrestGroup3,arrestGroup4,arrestGroup5];
+    	    var color_hash = {  0 : ["Arrest % : 0-5", "#ccebc5"],
+					    1 : ["Arrest % : 5-10", "#7bccc4"],2 : ["Arrest % : 10-20", "#2b8cbe"],3 : ["Arrest % : 20-50", "#0868ac"],4 : ["Arrest % : 50-100", "#084081"]}
+					    
+  			var legend = svg.append("g")
+  								.attr('transform', "translate(" + (margin.right - 150) + "," + (margin.bottom + 330) + ")")
+    							.attr("class", "legend")
+
+  			legend.selectAll("body")
+  					.data(WardArrestGroup)
+      				.enter()
+      				.append("g")
+      				.each(function(d, i) {
+        			var g = d3.select(this);
+        				g.append("rect")
+          				.attr("x", w1 - 250)
+          				.attr("y", i*25-160)
+          				.attr("width", 10)
+          				.attr("height", 10)
+          				.style("stroke", "black")
+          				.style("fill", color_hash[String(i)][1]);
+
+        			g.append("text")
+          			.attr("x", w1 - 230)
+          			.attr("y", i * 25 - 150)
+          			.attr("height",150)
+          			.attr("width",150)
+          			.text(color_hash[String(i)][0]);
+        })
+    };
+    
+d3.csv("TotalCrime.csv", function(error, data) {
+    data.forEach(function(d) {
+        d.year = d.Year;
+        d.count = d.Total_Crime;
+    });
+    
+    var x=d3.scale.linear();
+    var xAxis=d3.svg.axis()
+			.scale(x).orient("bottom")
+			.tickFormat(function(e){return""+e})
+			.ticks(18);
+			
+	var y = d3.scale.linear().range([h1, 0]);	
+	var yAxis = d3.svg.axis().scale(y)
+    	.orient("left").ticks(8);
+    
+    x.domain([2001,2018]).range([0,w1]);
+    y.domain([0, d3.max(data, function(d) { return d.count; })]);
+    
+    	// Define the line
+	var valueline = d3.svg.line()
+    	.x(function(d) { return x(d.year); })
+    	.y(function(d) { return y(d.count); });
+    
+    // Add the valueline path.
+    chart1.append("text")
+        .attr("transform", "translate(" + (w1/4 -15)+ ",-18)")
+        .attr("class", "titleChart1")
+        .attr("font-weight",900)
+        .style("fill", "blue")
+        .style("text-decoration", "underline")
+        .text("Distribution of crime-count by year");
+    
+    chart1.append("path")
+        .attr("class", "line")
+        .attr("d", valueline(data))
+        .attr("stroke", "grey")
+   		.attr("stroke-width", "2px");
+   		
+    chart1.selectAll("dot")  
+        .data(data)     
+    .enter().append("ellipse")                 
+        .attr("cx", function(d) { return x(d.year); })     
+        .attr("cy", function(d) { return y(d.count); })
+        .attr("rx", 3.5) 
+        .attr("ry", 3.5)
+        .style("fill", "white") 
+        .attr("stroke", 'steelblue')
+        .attr("id", function(d) { return d.year; })
+        .on("mousemove", function(d) {
+                if(d.year == "2001") {Toatl = d.count;} else if(d.year == "2002") { Toatl = d.count;}else if(d.year == "2003") { Toatl = d.count;}else if(d.year == "2004") {  Toatl = d.count;} else if(d.year == "2005") { Toatl = d.count;} else if(d.year == "2006") { Toatl = d.count;}else if(d.year == "2007") { Toatl = d.count;}else if(d.year == "2008") { Toatl = d.count;}else if(d.year == "2009") { Toatl = d.count;}else if(d.year == "2010") { Toatl = d.count;}else if(d.year == "2011") { Toatl = d.count;}else if(d.year == "2012") { Toatl = d.count;}else if(d.year == "2013") { Toatl = d.count;}else if(d.year == "2014") { Toatl = d.count;}else if(d.year == "2015") { Toatl = d.count;}else if(d.year == "2016") { Toatl = d.count;}else if(d.year == "2017") { Toatl = d.count;}else { Toatl= d.count;}
+        		div.transition()		
+                	.duration(200)		
+                	.style("opacity", 3);
+                			
+            	 div.html("TotalCrime: "+Toatl)
+                	.style("left", (d3.event.pageX -34) + "px")		
+                	.style("top", (d3.event.pageY -12) + "px");
+        })
+        .on("mouseout", function(d) {		
+            div.transition()		
+               .duration(500)		
+               .style("opacity", 0);
+        	})
+        .on("click", function(d) {
+             var y_id = this.id;
+             //console.log(y_id);
+			 tool_tip.hide();
+             newData = wardCrime.filter(function(d){return d.crime_year==y_id})
+
+             var newWardGroup1 = newData.filter(function(d){return d.count_crime <= 2000 && d.count_crime >= 0;});
+             var newWardGroup2 = newData.filter(function(d){return d.count_crime <= 5000 && d.count_crime >= 2001;});
+             var newWardGroup3 = newData.filter(function(d){return d.count_crime <= 10000 && d.count_crime >= 5001;});
+             var newWardGroup4 = newData.filter(function(d){return d.count_crime <= 15000 && d.count_crime >= 10001;});
+             var newWardGroup5 = newData.filter(function(d){return d.count_crime <= 20000 && d.count_crime >= 15001;});
+             
+             newWardGroup = [newWardGroup1,newWardGroup2,newWardGroup3,newWardGroup4,newWardGroup5];
+             
+             if (newWardGroup1.length > 0){
+             	newWardGroup1.forEach(function(d) {
+        			d.Col_crime_ward = d.crime_ward;
+        			document.getElementById(d.Col_crime_ward).style.fill = '#fee0d2'
+    		    	});
+             }
+             if (newWardGroup2.length > 0){
+             newWardGroup2.forEach(function(d) {
+        		d.Col_crime_ward = d.crime_ward;
+        		document.getElementById(d.Col_crime_ward).style.fill = '#fc9272'
+    		    });
+    		}
+    		if (newWardGroup3.length > 0){
+             newWardGroup3.forEach(function(d) {
+        		d.Col_crime_ward = d.crime_ward;
+        		document.getElementById(d.Col_crime_ward).style.fill = '#ef3b2c'
+    		    });
+    		}
+    		if (newWardGroup4.length > 0){
+             newWardGroup4.forEach(function(d) {
+        		d.Col_crime_ward = d.crime_ward;
+        		document.getElementById(d.Col_crime_ward).style.fill = '#a50f15'
+    		    });
+    		}
+    		if (newWardGroup5.length > 0){
+             newWardGroup5.forEach(function(d) {
+        		d.Col_crime_ward = d.crime_ward;
+        		document.getElementById(d.Col_crime_ward).style.fill = '#67000d'
+    		    });
+    		}
+    		    		        		
+        	var color_hash = {  0 : ["Crime range 0-2000", "#fee0d2"],
+					    1 : ["Crime range 2000-5000", "#fc9272"],2 : ["Crime range 5000-10000", "#ef3b2c"],3 : ["Crime range 10000-15000", "#a50f15"],4 : ["Crime range 15000-20000", "#67000d"]}
+					    
+  			var legend = chart1.append("g")
+  								.attr('transform', "translate(" + (margin.right - 50) + "," + (margin.bottom + 130) + ")")
+    							.attr("class", "legend")
+
+  			legend.selectAll("body")
+  					.data(newWardGroup)
+      				.enter()
+      				.append("g")
+      				.each(function(d, i) {
+        			var g = d3.select(this);
+        				g.append("rect")
+          				.attr("x", w1 - 250)
+          				.attr("y", i*25)
+          				.attr("width", 20)
+          				.attr("height", 10)
+          				.style("stroke", "black")
+          				.style("fill", color_hash[String(i)][1]);
+
+        			g.append("text")
+          			.attr("x", w1 - 210)
+          			.attr("y", i * 25 + 8)
+          			.attr("height",150)
+          			.attr("width",150)
+          			.text(color_hash[String(i)][0]);
+        })
+			 
+        });
+        
+        chart1.append("g")
+        		.attr("class", "x axis")
+        		.attr("transform", "translate(0," + h1 + ")")
+        		.call(xAxis)
+        		.selectAll("text")
+    			.attr("y", 0)
+    			.attr("x", 9)
+    			.attr("dy", ".35em")
+    			.attr("transform", "rotate(90)")
+    			.style("text-anchor", "start");;
+    	 chart1.append("text")
+                  .attr("class", "chart1XAxisText")
+                  .style("text-anchor", "end")
+                  //.attr("transform", "translate(10,500)") 
+                  .attr("x",w1-150)
+                  .attr("y", 390)
+                  .attr("font-weight",900)
+                  .text("Years");
+            		// Add the Y Axis
+    	chart1.append("g")
+        		.attr("class", "y axis")
+        		.call(yAxis); 
+        		
+        chart1.append("text")
+                  .attr("class", "chart1YAxisText")
+                  .style("text-anchor", "end")
+                  .attr("x",15)
+                  .attr("y",-2)
+                  .attr("font-weight",900)
+                  .text("Crime count");
+                  
+       
+        
+
+        
+});
+
+</script>
+
+</body>
